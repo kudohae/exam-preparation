@@ -158,3 +158,22 @@ kbd{font-family:inherit;font-size:11px;border:1px solid var(--line);border-botto
 .area td{border-bottom:1px solid var(--line);padding:7px 4px}
 .area td:last-child,.area th:last-child{text-align:right}
 .score .hint{text-align:left}
+.card .last{margin-top:2px;color:var(--ink);font-weight:600}
+.hist{margin:6px 0 4px;border-top:1px solid var(--line);padding-top:12px}
+.htitle{font-size:12.5px;font-weight:800;margin-bottom:6px}
+.hist{max-height:260px;overflow:auto}
+.hrow{display:flex;width:100%;gap:10px;align-items:center;border:0;border-bottom:1px solid var(--line);background:#fff;padding:9px 2px;font-size:13.5px;text-align:left}
+.hrow:hover{background:var(--panel)}
+.hrow .hd{color:var(--sub);flex:none}
+.hrow .hm{flex:1}
+.hrow .hs{flex:none}
+.mbox{max-height:calc(100vh - 36px);overflow:auto}
+.card .last{margin-top:2px;color:var(--ink);font-weight:600}
+.hist{margin:6px 0 4px;border-top:1px solid var(--line);padding-top:12px;max-height:260px;overflow:auto}
+.htitle{font-size:12.5px;font-weight:800;margin-bottom:6px}
+.hrow{display:flex;width:100%;gap:10px;align-items:center;border:0;border-bottom:1px solid var(--line);background:#fff;padding:9px 2px;font-size:13.5px;text-align:left}
+.hrow:hover{background:var(--panel)}
+.hrow .hd{color:var(--sub);flex:none}
+.hrow .hm{flex:1}
+.hrow .hs{flex:none}
+.mbox{max-height:calc(100vh - 36px);overflow:auto}
