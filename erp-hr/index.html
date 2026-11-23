@@ -13,7 +13,7 @@
 const CIR='①②③④';
 const LS='erphr.v1';
 let D=null, S=load(), view={};
-function load(){try{const s=JSON.parse(localStorage.getItem(LS)||'{}');s.res=s.res||{};s.lv=s.lv||'all';return s}catch(e){return {res:{},lv:'all'}}}
+function load(){try{const s=JSON.parse(localStorage.getItem(LS)||'{}');s.res=s.res||{};s.bm=s.bm||{};s.lv=s.lv||'all';return s}catch(e){return {res:{},bm:{},lv:'all'}}}
 function save(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const $=s=>document.querySelector(s);
@@ -36,7 +36,7 @@ function bindHeader(){document.querySelectorAll('#lvseg button').forEach(b=>b.on
 
 function route(){
   const p=parseHash();
-  if(p.ex||p.unit||p.wrong){startSet(p)} else home(p.tab||view.tab||'ex');
+  if(p.ex||p.unit||p.wrong||p.bm){startSet(p)} else {app.classList.remove('wide');home(p.tab||view.tab||'ex')}
   window.scrollTo(0,0);
 }
 
@@ -62,6 +62,9 @@ function home(tab){
       html+=`<button class="card" data-go="unit=${u.key}" ${list.length?'':'disabled'}><div class="unitrow"><span class="code">${u.code}</span><span class="nm">${esc(u.name)}</span><span class="ct">${list.length}문항${s.ok+s.bad?` · ${s.ok}/${s.ok+s.bad}`:''}</span></div>${barHTML(s)}</button>`;
     });
     body=html+'</div>';
+  } else if(tab==='bm'){
+    const list=D.qs.filter(q=>lvOk(q)&&S.bm[q.id]);
+    body=list.length?`<div class="card"><h3>북마크 ${list.length}문항</h3><div class="meta">풀이 화면에서 ☆ 북마크를 누른 문제입니다.</div><div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn" data-go="bm=1">북마크 풀기</button><button class="btn ghost" data-go="bm=1&shuffle=1">섞어서 풀기</button></div></div>`:`<div class="empty">북마크한 문제가 없습니다.</div>`;
   } else {
     const list=D.qs.filter(q=>lvOk(q)&&S.res[q.id]&&!S.res[q.id].ok);
     const solved=D.qs.filter(q=>lvOk(q)&&S.res[q.id]).length;
@@ -69,7 +72,7 @@ function home(tab){
       :`<div class="empty">${solved?'틀린 문제가 없습니다.':'아직 푼 문제가 없습니다.'}</div>`;
     body+=`<div class="note">풀이 기록은 이 브라우저에만 저장됩니다. ${solved}문항 풀이 기록이 있습니다. <button class="back" id="reset" style="margin-left:6px">기록 전체 삭제</button></div>`;
   }
-  app.innerHTML=header()+`<div class="tabs"><button data-tab="ex" class="${tab==='ex'?'on':''}">회차별</button><button data-tab="unit" class="${tab==='unit'?'on':''}">주제별</button><button data-tab="wrong" class="${tab==='wrong'?'on':''}">오답노트</button></div>`+body+
+  app.innerHTML=header()+`<div class="tabs"><button data-tab="ex" class="${tab==='ex'?'on':''}">회차별</button><button data-tab="unit" class="${tab==='unit'?'on':''}">주제별</button><button data-tab="wrong" class="${tab==='wrong'?'on':''}">오답노트</button><button data-tab="bm" class="${tab==='bm'?'on':''}">북마크</button></div>`+body+
    `<div class="note">ERP 영역(1~5번)은 공식 정답이 공개되지 않아 Claude가 정답과 해설을 작성했고, 해당 문항에 "Claude 작성 정답" 표시가 있습니다. 101회는 PDF에서 추출해 띄어쓰기가 어긋난 곳이 있을 수 있습니다. 주제 분류는 출제기준(실라버스)과 키워드를 바탕으로 했습니다.</div>`;
   bindHeader();
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{view.tab=b.dataset.tab;history.replaceState(null,'','#tab='+b.dataset.tab);home(b.dataset.tab)});
@@ -79,19 +82,24 @@ function home(tab){
 
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 
+function setKey(p){const o={...p};delete o.q;return JSON.stringify(o)}
 function startSet(p){
   let list,title,sub='',back='ex';
   if(p.ex){const[ex,lv]=p.ex.split('-');list=D.qs.filter(q=>q.ex==ex&&q.lv===lv).sort((a,b)=>a.no-b.no);title=`${ex}회 ${lv}급`;sub=list[0]?`${list[0].y}년 ${list[0].m}월`:'';back='ex'}
   else if(p.unit){const u=D.unit[p.unit];list=D.qs.filter(q=>q.unit===p.unit&&lvOk(q));title=u?`${u.code} ${u.name}`:'주제';sub=S.lv==='all'?'1·2급':S.lv+'급';back='unit'}
+  else if(p.bm){list=D.qs.filter(q=>lvOk(q)&&S.bm[q.id]);title='북마크';back='bm'}
   else {list=D.qs.filter(q=>lvOk(q)&&S.res[q.id]&&!S.res[q.id].ok);title='오답노트';back='wrong'}
-  const key=JSON.stringify(p);
+  const key=setKey(p);
   if(view.key!==key||!view.ids){
     if(p.shuffle)list=shuffle(list);
-    view={key,ids:list.map(q=>q.id),i:0,title,sub,back,sess:{},tab:back};
+    view={key,p,ids:list.map(q=>q.id),i:0,title,sub,back,sess:{},tab:back};
   }
-  if(!view.ids.length){app.innerHTML=header()+`<div class="empty">풀 문제가 없습니다. <a href="#tab=${back}">돌아가기</a></div>`;bindHeader();return}
+  if(!view.ids.length){app.classList.remove('wide');app.innerHTML=header()+`<div class="empty">풀 문제가 없습니다. <a href="#tab=${back}">돌아가기</a></div>`;bindHeader();return}
+  const qi=parseInt(p.q||'1',10)-1; view.i=Math.min(Math.max(isNaN(qi)?0:qi,0),view.ids.length-1);
   render();
 }
+function setHash(){const o={...view.p,q:view.i+1};history.replaceState(null,'','#'+Object.entries(o).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&'))}
+function move(i){if(i<0||i>=view.ids.length)return;view.i=i;setHash();render();window.scrollTo(0,0)}
 
 function normAns(s){return String(s).replace(/\s+/g,'').replace(/[(),.·:：]/g,'').toLowerCase()}
 function variants(q){
@@ -101,65 +109,91 @@ function variants(q){
   return v;
 }
 function record(q,ok){
-  const r=S.res[q.id]||{n:0}; r.ok=ok; r.n++; r.t=Date.now(); S.res[q.id]=r; view.sess[q.id]={ok,pick:view.sess[q.id]?.pick,txt:view.sess[q.id]?.txt}; save();
+  const r=S.res[q.id]||{n:0,c:0}; r.ok=ok; r.n++; if(ok)r.c=(r.c||0)+1; r.t=Date.now(); S.res[q.id]=r; save();
 }
+function check(){
+  const q=D.byId[view.ids[view.i]], s=view.sess[q.id]||(view.sess[q.id]={});
+  if(s.done)return;
+  if(q.t==='m'){if(s.sel==null)return; s.ok=CIR[s.sel]===q.ans}
+  else {s.txt=($('#sa')?.value||''); s.ok=s.txt.trim()!==''&&variants(q).has(normAns(s.txt))}
+  s.done=true; record(q,s.ok); render();
+}
+function retry(){const q=D.byId[view.ids[view.i]];delete view.sess[q.id];render()}
 
 function render(){
-  const ids=view.ids, i=view.i, q=D.byId[ids[i]], u=D.unit[q.unit], sess=view.sess[q.id];
-  const dots=ids.map((id,k)=>{const s=view.sess[id];const cls=(s?(s.ok?'ok':'bad'):'')+(k===i?' cur':'');return `<button class="${cls}" data-i="${k}">${view.key.includes('"ex"')?D.byId[id].no:k+1}</button>`}).join('');
-  let tags=`<span class="tag">${q.ex}회 ${q.lv}급 ${q.no}번</span><span class="tag u">${u?u.code+' '+esc(u.name):''}</span><span class="tag">${q.t==='s'?'주관식':'객관식'}</span>`;
+  app.classList.add('wide');
+  const ids=view.ids, i=view.i, q=D.byId[ids[i]], u=D.unit[q.unit], sess=view.sess[q.id]||{}, done=!!sess.done;
+  const byNo=!!view.p.ex;
+  const dots=ids.map((id,k)=>{const s=view.sess[id];const cls=(s&&s.done?(s.ok?'ok':'bad'):'')+(k===i?' cur':'');return `<button class="${cls}" data-i="${k}">${byNo?D.byId[id].no:k+1}</button>`}).join('');
+  const bm=!!S.bm[q.id];
+  const meta=`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 ${q.lv}급 · ${u?u.code+' '+esc(u.name):''}`;
+  let tags=`<span class="tag">${q.t==='s'?'주관식':'객관식'}</span>`;
   if(q.c) tags+=`<span class="tag c">Claude 작성 정답</span>`;
   const boki=q.boki.length?`<div class="boki"><b>[보기]</b>${q.boki.map(esc).join('\n')}</div>`:'';
   const imgs=(q.imgs||[]).map(s=>`<img class="qimg" src="${s}" alt="문제 이미지" loading="lazy">`).join('');
   let ansArea='';
   if(q.t==='m'){
     const ai=CIR.indexOf(q.ans);
-    ansArea=`<div class="opts">${q.opts.map((o,k)=>{let cls='';if(sess){if(k===ai)cls='ok';else if(k===sess.pick)cls='bad'}return `<button class="opt ${cls}" data-k="${k}" ${sess?'disabled':''}><span class="n">${CIR[k]}</span><span>${esc(o)}</span></button>`}).join('')}</div>`;
+    ansArea=`<div class="opts">${q.opts.map((o,k)=>{let cls='';if(done){if(k===ai)cls='ok';else if(k===sess.sel)cls='bad'}else if(k===sess.sel)cls='sel';return `<button class="opt ${cls}" data-k="${k}" ${done?'disabled':''}><span class="n">${CIR[k]}</span><span>${esc(o)}</span></button>`}).join('')}</div>`;
   } else {
     const hints=(q.notes||[]).filter(n=>/^\s*\*/.test(n)).map(esc).join('<br>');
     const fmt=(q.notes||[]).find(n=>/정답/.test(n)&&!/^\s*\*/.test(n));
-    ansArea=`<div class="subj"><input id="sa" placeholder="${fmt?esc(fmt.replace(/\s+/g,' ')):'정답 입력'}" value="${esc(sess?.txt||'')}" ${sess?'disabled':''} autocomplete="off"><button class="btn" id="sub" ${sess?'disabled':''}>채점</button></div>${hints?`<div class="hint">${hints}</div>`:''}${sess?'':'<div class="hint">모르면 비워 두고 채점을 누르면 정답을 볼 수 있습니다.</div>'}`;
+    ansArea=`<div class="subj"><input id="sa" placeholder="${fmt?esc(fmt.replace(/\s+/g,' ')):'정답 입력'}" value="${esc(sess.txt||'')}" ${done?'disabled':''} autocomplete="off"></div>${hints?`<div class="hint">${hints}</div>`:''}`;
   }
-  let res='';
-  if(sess){
+  const canCheck=q.t==='s'||sess.sel!=null;
+  const checkBtn=done?`<button class="btn ghost" id="retry">다시 풀기</button>`:`<button class="btn" id="chk" ${canCheck?'':'disabled'}>정답 확인</button>`;
+  const r=S.res[q.id];
+  const hist=r?`이 문제를 ${r.n}번 풀어 ${r.c??(r.ok?1:0)}번 맞혔습니다. 마지막 결과는 ${r.ok?'정답':'오답'}입니다.`:'아직 푼 기록이 없습니다.';
+  let panel;
+  if(done){
     const ansTxt=q.t==='m'?`${q.ans} ${esc(q.opts[CIR.indexOf(q.ans)]||'')}`:esc(q.ans);
-    res=`<div class="result ${sess.ok?'ok':'bad'}"><div class="v">${sess.ok?'정답입니다':'오답입니다'}</div><div>정답: <span class="ans">${ansTxt}</span></div>${q.alt?`<div class="alt">복수정답·채점 기준: ${esc(q.alt)}</div>`:''}${q.expl?`<div class="ex">${esc(q.expl)}</div>`:''}
+    panel=`<div class="result ${sess.ok?'ok':'bad'}"><div class="v">${sess.ok?'정답입니다':'오답입니다'}</div><div>정답: <span class="ans">${ansTxt}</span></div>${q.alt?`<div class="alt">복수정답·채점 기준: ${esc(q.alt)}</div>`:''}
+    ${q.t==='s'?`<div class="self"><span class="hint" style="margin:0;align-self:center">자동 채점이 틀렸다면</span><button data-self="1">맞은 걸로</button><button data-self="0">틀린 걸로</button></div>`:''}</div>
+    <div class="ptitle">해설</div><div class="ex">${q.expl?esc(q.expl):'해설이 없는 문항입니다.'}</div>
     ${q.c?`<div class="warnbox">공식 정답이 공개되지 않은 문항이라 Claude가 정답과 해설을 작성했습니다.${q.low?' 판단이 갈릴 여지가 있는 문항이니 교재로 한 번 더 확인하세요.':''}</div>`:''}
-    ${q.pdf?`<div class="warnbox plain">101회 문항은 PDF에서 추출해 띄어쓰기가 일부 어긋날 수 있습니다.</div>`:''}
-    ${q.t==='s'?`<div class="self"><span class="hint" style="margin:0;align-self:center">자동 채점이 틀렸다면:</span><button data-self="1">맞은 걸로</button><button data-self="0">틀린 걸로</button></div>`:''}</div>`;
-  }
+    ${q.pdf?`<div class="warnbox plain">101회 문항은 PDF에서 추출해 띄어쓰기가 일부 어긋날 수 있습니다.</div>`:''}`;
+  } else panel=`<div class="placeholder">왼쪽에서 ${q.t==='m'?'보기를 고르고':'답을 입력하고'} 정답 확인을 누르면 여기에 정답과 해설이 표시됩니다.</div>`;
+  panel+=`<div class="ptitle">내 기록</div><div class="hint" style="margin-top:0">${hist}</div>`;
   const last=i===ids.length-1;
-  app.innerHTML=header()+`<div class="qhead"><button class="back" id="back">← 목록</button><div class="qtitle">${esc(view.title)}<span>${esc(view.sub)} · ${i+1}/${ids.length}</span></div></div>
-  <div class="dots">${dots}</div>
-  <div class="q"><div class="tags">${tags}</div><div class="stem"><span class="no">${q.no}.</span>${esc(q.stem)}</div>${boki}${imgs}${ansArea}${res}</div>
-  <div class="nav"><button class="btn ghost" id="prev" ${i===0?'disabled':''}>이전</button><button class="btn" id="next">${last?'결과 보기':'다음'}</button></div>
-  <div class="hint" style="text-align:center;margin-top:10px">키보드: <kbd>1</kbd>~<kbd>4</kbd> 선택 · <kbd>←</kbd><kbd>→</kbd> 이동</div>`;
+  app.innerHTML=header()+`<div class="qhead"><button class="back" id="back">← 목록</button><div class="qtitle">${esc(view.title)}<span>${esc(view.sub)}</span></div></div>
+  <div class="pager"><button class="link" id="prev" ${i===0?'disabled':''}>← 이전</button><span class="pos"><b>${i+1}</b> / ${ids.length}</span><button class="link" id="next">${last?'결과 보기 →':'다음 →'}</button></div>
+  <details class="qlist" ${view.open?'open':''}><summary>문제 목록</summary><div class="dots">${dots}</div></details>
+  <div class="solve"><div class="q"><div class="qmeta"><span>${meta}</span><button class="bmk ${bm?'on':''}" id="bmk" title="북마크">${bm?'★ 북마크됨':'☆ 북마크'}</button></div><div class="tags">${tags}</div>
+  <div class="stem">${esc(q.stem)}</div>${boki}${imgs}${ansArea}<div class="actions">${checkBtn}</div></div>
+  <aside class="panel">${panel}</aside></div>
+  <div class="hint" style="text-align:center;margin-top:18px">키보드: <kbd>1</kbd>~<kbd>4</kbd> 선택 · <kbd>Enter</kbd> 정답 확인 · <kbd>←</kbd><kbd>→</kbd> 이동</div>`;
   bindHeader();
   $('#back').onclick=()=>{location.hash='#tab='+view.back};
-  document.querySelectorAll('.dots button').forEach(b=>b.onclick=()=>{view.i=+b.dataset.i;render();window.scrollTo(0,0)});
-  $('#prev').onclick=()=>{if(view.i>0){view.i--;render();window.scrollTo(0,0)}};
-  $('#next').onclick=()=>{if(last)summary();else{view.i++;render();window.scrollTo(0,0)}};
-  document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{const k=+b.dataset.k;const ok=CIR[k]===q.ans;record(q,ok);view.sess[q.id].pick=k;render()});
-  const sub=$('#sub'); if(sub){const doSub=()=>{const t=$('#sa').value;const ok=t.trim()!==''&&variants(q).has(normAns(t));record(q,ok);view.sess[q.id].txt=t;render()};sub.onclick=doSub;$('#sa').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();doSub()}};if(!sess)$('#sa').focus({preventScroll:true})}
-  document.querySelectorAll('[data-self]').forEach(b=>b.onclick=()=>{const ok=b.dataset.self==='1';S.res[q.id].ok=ok;view.sess[q.id].ok=ok;save();render()});
+  $('.qlist').ontoggle=e=>{view.open=e.target.open};
+  document.querySelectorAll('.dots button').forEach(b=>b.onclick=()=>move(+b.dataset.i));
+  $('#prev').onclick=()=>move(view.i-1);
+  $('#next').onclick=()=>{if(last)summary();else move(view.i+1)};
+  $('#bmk').onclick=()=>{if(S.bm[q.id])delete S.bm[q.id];else S.bm[q.id]=1;save();render()};
+  document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{(view.sess[q.id]=view.sess[q.id]||{}).sel=+b.dataset.k;render()});
+  const chk=$('#chk'); if(chk) chk.onclick=check;
+  const rt=$('#retry'); if(rt) rt.onclick=retry;
+  const sa=$('#sa'); if(sa&&!done){sa.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();check()}};sa.oninput=()=>{(view.sess[q.id]=view.sess[q.id]||{}).txt=sa.value};sa.focus({preventScroll:true})}
+  document.querySelectorAll('[data-self]').forEach(b=>b.onclick=()=>{const ok=b.dataset.self==='1';const r=S.res[q.id];if(r.ok!==ok){r.c=Math.max(0,(r.c||0)+(ok?1:-1))}r.ok=ok;view.sess[q.id].ok=ok;save();render()});
 }
 
 function summary(){
-  const ids=view.ids;let ok=0,bad=0;ids.forEach(id=>{const s=view.sess[id];if(s)s.ok?ok++:bad++});
-  const wrong=ids.filter(id=>view.sess[id]&&!view.sess[id].ok);
+  app.classList.remove('wide');
+  const ids=view.ids;let ok=0,bad=0;ids.forEach(id=>{const s=view.sess[id];if(s&&s.done)s.ok?ok++:bad++});
+  const wrong=ids.filter(id=>view.sess[id]&&view.sess[id].done&&!view.sess[id].ok);
   app.innerHTML=header()+`<div class="qhead"><button class="back" id="back">← 목록</button><div class="qtitle">${esc(view.title)}</div></div>
   <div class="summary"><div class="meta">이번 풀이 결과</div><div class="big">${ok} / ${ids.length}</div><div class="meta">정답률 ${ok+bad?Math.round(ok/(ok+bad)*100):0}% · 안 푼 문제 ${ids.length-ok-bad}개</div>
   <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap">${wrong.length?'<button class="btn" id="rw">틀린 문제만 다시</button>':''}<button class="btn ghost" id="again">처음부터 다시</button><button class="btn ghost" id="rv">답안 검토</button></div></div>`;
   bindHeader();
   $('#back').onclick=()=>{location.hash='#tab='+view.back};
-  $('#again').onclick=()=>{view.sess={};view.i=0;render()};
-  $('#rv').onclick=()=>{view.i=0;render()};
-  const rw=$('#rw'); if(rw) rw.onclick=()=>{view.ids=wrong;wrong.forEach(id=>delete view.sess[id]);view.i=0;view.title+=' · 틀린 문제';render()};
+  $('#again').onclick=()=>{view.sess={};move(0)};
+  $('#rv').onclick=()=>move(0);
+  const rw=$('#rw'); if(rw) rw.onclick=()=>{view.ids=wrong;wrong.forEach(id=>delete view.sess[id]);view.title+=' · 틀린 문제';move(0)};
 }
 
 document.addEventListener('keydown',e=>{
-  if(!view.ids||!$('.q'))return; if(e.target.tagName==='INPUT')return;
+  if(!view.ids||!$('.solve'))return; if(e.target.tagName==='INPUT')return;
   if(/^[1-4]$/.test(e.key)){const b=document.querySelector(`.opt[data-k="${+e.key-1}"]`);if(b&&!b.disabled)b.click()}
+  else if(e.key==='Enter'){$('#chk')?.click()}
   else if(e.key==='ArrowRight'){$('#next')?.click()} else if(e.key==='ArrowLeft'){$('#prev')?.click()}
 });
 })();

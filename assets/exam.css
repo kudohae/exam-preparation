@@ -103,3 +103,28 @@ button.card:hover:not([disabled]),a.card:hover{border-color:var(--ink)}
 .summary .meta{color:var(--sub);font-size:14px}
 kbd{font-family:inherit;font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:3px;padding:0 4px;background:#fff}
 @media (max-width:520px){.wrap{padding:18px 14px 70px}.stem{font-size:16px}.grid{grid-template-columns:1fr 1fr}}
+
+/* 풀이 화면: 왼쪽 문제, 오른쪽 정답·해설 */
+.wrap.wide{max-width:1120px}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.pager .pos{font-size:14px;color:var(--sub)} .pager .pos b{color:var(--ink);font-size:16px}
+.link{border:0;background:none;font-weight:700;font-size:14.5px;padding:6px 4px}
+.link:hover:not([disabled]){text-decoration:underline}
+.qlist{margin:10px 0 4px}
+.qlist summary{cursor:pointer;font-size:13.5px;font-weight:600;color:var(--sub);padding:4px 0;list-style:none}
+.qlist summary::-webkit-details-marker{display:none}
+.qlist summary::before{content:"▸ ";} .qlist[open] summary::before{content:"▾ "}
+.qlist .dots{margin:8px 0 6px}
+.solve{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;margin-top:10px}
+@media (min-width:940px){.solve{grid-template-columns:minmax(0,1fr) 380px;gap:32px}.panel{position:sticky;top:16px;align-self:start;max-height:calc(100vh - 32px);overflow:auto}}
+.qmeta{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;color:var(--sub);margin-bottom:8px;flex-wrap:wrap}
+.bmk{border:1px solid var(--line);background:#fff;border-radius:4px;font-size:12.5px;padding:3px 8px;color:var(--sub)}
+.bmk.on{border-color:var(--ink);color:var(--ink);font-weight:700}
+.opt.sel{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.actions{margin-top:16px;display:flex;justify-content:flex-end}
+.actions .btn{min-width:140px}
+.panel{border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;background:#fff;font-size:14.5px;line-height:1.7}
+.panel .result{margin-top:0}
+.panel .ptitle{font-size:12.5px;font-weight:800;letter-spacing:.03em;margin:16px 0 6px;padding-top:12px;border-top:1px solid var(--line)}
+.panel .ex{white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
+.placeholder{color:var(--sub);font-size:14px;line-height:1.7;padding:6px 0}
