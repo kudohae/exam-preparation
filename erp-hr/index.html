@@ -141,7 +141,7 @@ function render(){
   const exam=view.mode==='exam'&&!view.submitted;
   clearInterval(view.tick);
   const byNo=!!view.p.ex;
-  const dots=ids.map((id,k)=>{const s=view.sess[id];const cls=(s&&s.done?(s.ok?'ok':'bad'):(exam&&s&&(s.sel!=null||(s.txt||'').trim())?'ans':''))+(k===i?' cur':'');return `<button class="${cls}" data-i="${k}">${byNo?D.byId[id].no:k+1}</button>`}).join('');
+  const dots=ids.map((id,k)=>{const s=view.sess[id];const picked=s&&(s.sel!=null||(s.txt||'').trim());const cls=(s&&s.done?(s.ok?'ok':'bad'):(picked?(exam?'ans':'pend'):''))+(k===i?' cur':'');return `<button class="${cls}" data-i="${k}">${byNo?D.byId[id].no:k+1}</button>`}).join('');
   const bm=!!S.bm[q.id];
   const meta=`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 ${q.lv}급 · ${u?u.code+' '+esc(u.name):''}`;
   let tags=`<span class="tag">${q.t==='s'?'주관식':'객관식'}</span>`;
@@ -211,8 +211,9 @@ function summary(){
   app.classList.remove('wide');
   const ids=view.ids;let ok=0,bad=0;ids.forEach(id=>{const s=view.sess[id];if(s&&s.done)s.ok?ok++:bad++});
   const wrong=ids.filter(id=>view.sess[id]&&view.sess[id].done&&!view.sess[id].ok);
+  const pend=ids.filter(id=>{const s=view.sess[id];return s&&!s.done&&(s.sel!=null||(s.txt||'').trim())}).length;
   app.innerHTML=header()+`<div class="qhead"><button class="back" id="back">← 목록</button><div class="qtitle">${esc(view.title)}</div></div>
-  <div class="summary"><div class="meta">이번 풀이 결과</div><div class="big">${ok} / ${ids.length}</div><div class="meta">${view.mode==='exam'?`100점 환산 ${Math.round(ok/ids.length*100)}점 · 풀이 시간 ${Math.floor(view.elapsed/60000)}분 ${Math.round(view.elapsed%60000/1000)}초`:`정답률 ${ok+bad?Math.round(ok/(ok+bad)*100):0}% · 안 푼 문제 ${ids.length-ok-bad}개`}</div>
+  <div class="summary"><div class="meta">이번 풀이 결과</div><div class="big">${ok} / ${ids.length}</div><div class="meta">${view.mode==='exam'?`100점 환산 ${Math.round(ok/ids.length*100)}점 · 풀이 시간 ${Math.floor(view.elapsed/60000)}분 ${Math.round(view.elapsed%60000/1000)}초`:`정답률 ${ok+bad?Math.round(ok/(ok+bad)*100):0}% · 안 푼 문제 ${ids.length-ok-bad}개${pend?` (고르기만 하고 확인 안 한 문제 ${pend}개)`:''}`}</div>
   ${view.mode==='exam'?`<div class="omr">${ids.map((id,k)=>{const s=view.sess[id];return `<button class="${s.ok?'ok':'bad'}" data-i="${k}">${D.byId[id].no}</button>`}).join('')}</div>`:''}
   <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap">${wrong.length?'<button class="btn" id="rw">틀린 문제만 다시</button>':''}<button class="btn ghost" id="again">처음부터 다시</button><button class="btn ghost" id="rv">답안 검토</button></div></div>`;
   bindHeader();
