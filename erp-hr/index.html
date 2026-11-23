@@ -50,7 +50,7 @@ function home(tab){
     exams.forEach(ex=>lvs.forEach(lv=>{
       const list=D.qs.filter(q=>q.ex===ex&&q.lv===lv); if(!list.length)return;
       const s=stat(list), q0=list[0];
-      cards+=`<button class="card" data-go="ex=${ex}-${lv}"><h3>${ex}회 · ${lv}급</h3><div class="meta">${q0.y}년 ${q0.m}월 · ${list.length}문항${s.ok+s.bad?` · ${s.ok}/${s.ok+s.bad} 정답`:''}</div>${barHTML(s)}</button>`;
+      cards+=`<button class="card" data-ex="${ex}-${lv}"><h3>${ex}회 · ${lv}급</h3><div class="meta">${q0.y}년 ${q0.m}월 · ${list.length}문항${s.ok+s.bad?` · ${s.ok}/${s.ok+s.bad} 정답`:''}</div>${barHTML(s)}</button>`;
     }));
     body=`<div class="grid">${cards}</div>`;
   } else if(tab==='unit'){
@@ -77,9 +77,23 @@ function home(tab){
   bindHeader();
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{view.tab=b.dataset.tab;history.replaceState(null,'','#tab='+b.dataset.tab);home(b.dataset.tab)});
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{location.hash='#'+b.dataset.go});
+  document.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>openMode(b.dataset.ex));
   const r=$('#reset'); if(r) r.onclick=()=>{if(confirm('풀이 기록을 모두 삭제할까요?')){S.res={};save();home('wrong')}};
 }
 
+function openMode(exlv){
+  const[ex,lv]=exlv.split('-');const list=D.qs.filter(q=>q.ex==ex&&q.lv===lv);const q0=list[0];
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="mbox" role="dialog" aria-modal="true"><div class="mhead"><h3>${ex}회 ${lv}급</h3><div class="meta">${q0.y}년 ${q0.m}월 · ${list.length}문항</div></div>
+  <button class="mopt" data-m="exam"><b>실전형</b><span>시험처럼 끝까지 답을 고른 뒤 한 번에 제출하고 채점합니다. 풀이 시간이 함께 표시됩니다.</span></button>
+  <button class="mopt" data-m="prac"><b>연습형</b><span>한 문제씩 정답 확인을 눌러 바로 채점하고 해설을 봅니다.</span></button>
+  <button class="link mclose">취소</button></div>`;
+  document.body.appendChild(m);
+  const close=()=>{m.remove();document.removeEventListener('keydown',esc_)};const esc_=e=>{if(e.key==='Escape')close()};
+  document.addEventListener('keydown',esc_);
+  m.onclick=e=>{if(e.target===m)close()};m.querySelector('.mclose').onclick=close;
+  m.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{close();view.key=null;location.hash='#ex='+exlv+(b.dataset.m==='exam'?'&mode=exam':'')});
+}
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 
 function setKey(p){const o={...p};delete o.q;return JSON.stringify(o)}
@@ -92,7 +106,8 @@ function startSet(p){
   const key=setKey(p);
   if(view.key!==key||!view.ids){
     if(p.shuffle)list=shuffle(list);
-    view={key,p,ids:list.map(q=>q.id),i:0,title,sub,back,sess:{},tab:back};
+    view={key,p,ids:list.map(q=>q.id),i:0,title,sub,back,sess:{},tab:back,mode:p.mode==='exam'?'exam':'prac',start:Date.now(),submitted:false};
+    if(view.mode==='exam')view.title+=' · 실전형';
   }
   if(!view.ids.length){app.classList.remove('wide');app.innerHTML=header()+`<div class="empty">풀 문제가 없습니다. <a href="#tab=${back}">돌아가기</a></div>`;bindHeader();return}
   const qi=parseInt(p.q||'1',10)-1; view.i=Math.min(Math.max(isNaN(qi)?0:qi,0),view.ids.length-1);
@@ -123,8 +138,10 @@ function retry(){const q=D.byId[view.ids[view.i]];delete view.sess[q.id];render(
 function render(){
   app.classList.add('wide');
   const ids=view.ids, i=view.i, q=D.byId[ids[i]], u=D.unit[q.unit], sess=view.sess[q.id]||{}, done=!!sess.done;
+  const exam=view.mode==='exam'&&!view.submitted;
+  clearInterval(view.tick);
   const byNo=!!view.p.ex;
-  const dots=ids.map((id,k)=>{const s=view.sess[id];const cls=(s&&s.done?(s.ok?'ok':'bad'):'')+(k===i?' cur':'');return `<button class="${cls}" data-i="${k}">${byNo?D.byId[id].no:k+1}</button>`}).join('');
+  const dots=ids.map((id,k)=>{const s=view.sess[id];const cls=(s&&s.done?(s.ok?'ok':'bad'):(exam&&s&&(s.sel!=null||(s.txt||'').trim())?'ans':''))+(k===i?' cur':'');return `<button class="${cls}" data-i="${k}">${byNo?D.byId[id].no:k+1}</button>`}).join('');
   const bm=!!S.bm[q.id];
   const meta=`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 ${q.lv}급 · ${u?u.code+' '+esc(u.name):''}`;
   let tags=`<span class="tag">${q.t==='s'?'주관식':'객관식'}</span>`;
@@ -141,11 +158,14 @@ function render(){
     ansArea=`<div class="subj"><input id="sa" placeholder="${fmt?esc(fmt.replace(/\s+/g,' ')):'정답 입력'}" value="${esc(sess.txt||'')}" ${done?'disabled':''} autocomplete="off"></div>${hints?`<div class="hint">${hints}</div>`:''}`;
   }
   const canCheck=q.t==='s'||sess.sel!=null;
-  const checkBtn=done?`<button class="btn ghost" id="retry">다시 풀기</button>`:`<button class="btn" id="chk" ${canCheck?'':'disabled'}>정답 확인</button>`;
+  const checkBtn=exam?'':done?`<button class="btn ghost" id="retry">다시 풀기</button>`:`<button class="btn" id="chk" ${canCheck?'':'disabled'}>정답 확인</button>`;
   const r=S.res[q.id];
   const hist=r?`이 문제를 ${r.n}번 풀어 ${r.c??(r.ok?1:0)}번 맞혔습니다. 마지막 결과는 ${r.ok?'정답':'오답'}입니다.`:'아직 푼 기록이 없습니다.';
   let panel;
-  if(done){
+  if(exam){
+    const n=ids.filter(id=>{const s=view.sess[id];return s&&(s.sel!=null||(s.txt||'').trim())}).length;
+    panel=`<div class="ptitle" style="margin-top:0;border:0;padding:0">실전형 진행 상황</div><div class="examstat"><div><span>푼 문제</span><b>${n} / ${ids.length}</b></div><div><span>경과 시간</span><b id="elapsed">00:00</b></div></div><div class="hint" style="margin-top:10px">정답과 해설은 제출한 뒤에 볼 수 있습니다. 문제 목록에서 답을 고른 번호는 검게 표시됩니다.</div><button class="btn" id="submit" style="width:100%;margin-top:14px">제출하고 채점</button>`;
+  } else if(done){
     const ansTxt=q.t==='m'?`${q.ans} ${esc(q.opts[CIR.indexOf(q.ans)]||'')}`:esc(q.ans);
     panel=`<div class="result ${sess.ok?'ok':'bad'}"><div class="v">${sess.ok?'정답입니다':'오답입니다'}</div><div>정답: <span class="ans">${ansTxt}</span></div>${q.alt?`<div class="alt">복수정답·채점 기준: ${esc(q.alt)}</div>`:''}
     ${q.t==='s'?`<div class="self"><span class="hint" style="margin:0;align-self:center">자동 채점이 틀렸다면</span><button data-self="1">맞은 걸로</button><button data-self="0">틀린 걸로</button></div>`:''}</div>
@@ -153,11 +173,11 @@ function render(){
     ${q.c?`<div class="warnbox">공식 정답이 공개되지 않은 문항이라 Claude가 정답과 해설을 작성했습니다.${q.low?' 판단이 갈릴 여지가 있는 문항이니 교재로 한 번 더 확인하세요.':''}</div>`:''}
     ${q.pdf?`<div class="warnbox plain">101회 문항은 PDF에서 추출해 띄어쓰기가 일부 어긋날 수 있습니다.</div>`:''}`;
   } else panel=`<div class="placeholder">왼쪽에서 ${q.t==='m'?'보기를 고르고':'답을 입력하고'} 정답 확인을 누르면 여기에 정답과 해설이 표시됩니다.</div>`;
-  panel+=`<div class="ptitle">내 기록</div><div class="hint" style="margin-top:0">${hist}</div>`;
+  if(!exam)panel+=`<div class="ptitle">내 기록</div><div class="hint" style="margin-top:0">${hist}</div>`;
   const last=i===ids.length-1;
   app.innerHTML=header()+`<div class="qhead"><button class="back" id="back">← 목록</button><div class="qtitle">${esc(view.title)}<span>${esc(view.sub)}</span></div></div>
-  <div class="pager"><button class="link" id="prev" ${i===0?'disabled':''}>← 이전</button><span class="pos"><b>${i+1}</b> / ${ids.length}</span><button class="link" id="next">${last?'결과 보기 →':'다음 →'}</button></div>
-  <details class="qlist" ${view.open?'open':''}><summary>문제 목록</summary><div class="dots">${dots}</div></details>
+  <div class="pager"><button class="link" id="prev" ${i===0?'disabled':''}>← 이전</button><span class="pos"><b>${i+1}</b> / ${ids.length}</span><button class="link" id="next">${last?(exam?'제출 →':'결과 보기 →'):'다음 →'}</button></div>
+  <details class="qlist" ${view.open||exam?'open':''}><summary>문제 목록</summary><div class="dots">${dots}</div></details>
   <div class="solve"><div class="q"><div class="qmeta"><span>${meta}</span><button class="bmk ${bm?'on':''}" id="bmk" title="북마크">${bm?'★ 북마크됨':'☆ 북마크'}</button></div><div class="tags">${tags}</div>
   <div class="stem">${esc(q.stem)}</div>${boki}${imgs}${ansArea}<div class="actions">${checkBtn}</div></div>
   <aside class="panel">${panel}</aside></div>
@@ -167,33 +187,46 @@ function render(){
   $('.qlist').ontoggle=e=>{view.open=e.target.open};
   document.querySelectorAll('.dots button').forEach(b=>b.onclick=()=>move(+b.dataset.i));
   $('#prev').onclick=()=>move(view.i-1);
-  $('#next').onclick=()=>{if(last)summary();else move(view.i+1)};
+  $('#next').onclick=()=>{if(last){exam?submitExam():summary()}else move(view.i+1)};
+  if(exam){$('#submit').onclick=submitExam;const el=$('#elapsed');const upd=()=>{const t=Math.floor((Date.now()-view.start)/1000);el.textContent=String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0')};upd();view.tick=setInterval(upd,1000)}
   $('#bmk').onclick=()=>{if(S.bm[q.id])delete S.bm[q.id];else S.bm[q.id]=1;save();render()};
   document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{(view.sess[q.id]=view.sess[q.id]||{}).sel=+b.dataset.k;render()});
   const chk=$('#chk'); if(chk) chk.onclick=check;
   const rt=$('#retry'); if(rt) rt.onclick=retry;
-  const sa=$('#sa'); if(sa&&!done){sa.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();check()}};sa.oninput=()=>{(view.sess[q.id]=view.sess[q.id]||{}).txt=sa.value};sa.focus({preventScroll:true})}
+  const sa=$('#sa'); if(sa&&!done){sa.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();exam?move(view.i+1):check()}};sa.oninput=()=>{(view.sess[q.id]=view.sess[q.id]||{}).txt=sa.value};sa.focus({preventScroll:true})}
   document.querySelectorAll('[data-self]').forEach(b=>b.onclick=()=>{const ok=b.dataset.self==='1';const r=S.res[q.id];if(r.ok!==ok){r.c=Math.max(0,(r.c||0)+(ok?1:-1))}r.ok=ok;view.sess[q.id].ok=ok;save();render()});
 }
 
+function submitExam(){
+  const left=view.ids.filter(id=>{const s=view.sess[id];return !(s&&(s.sel!=null||(s.txt||'').trim()))}).length;
+  if(left&&!confirm(`아직 답하지 않은 문제가 ${left}개 있습니다. 그래도 제출할까요?`))return;
+  clearInterval(view.tick); view.elapsed=Date.now()-view.start;
+  view.ids.forEach(id=>{const q=D.byId[id];const s=view.sess[id]||(view.sess[id]={});
+    if(q.t==='m')s.ok=s.sel!=null&&CIR[s.sel]===q.ans; else s.ok=(s.txt||'').trim()!==''&&variants(q).has(normAns(s.txt));
+    s.done=true; record(q,s.ok)});
+  view.submitted=true; summary();
+}
 function summary(){
+  clearInterval(view.tick);
   app.classList.remove('wide');
   const ids=view.ids;let ok=0,bad=0;ids.forEach(id=>{const s=view.sess[id];if(s&&s.done)s.ok?ok++:bad++});
   const wrong=ids.filter(id=>view.sess[id]&&view.sess[id].done&&!view.sess[id].ok);
   app.innerHTML=header()+`<div class="qhead"><button class="back" id="back">← 목록</button><div class="qtitle">${esc(view.title)}</div></div>
-  <div class="summary"><div class="meta">이번 풀이 결과</div><div class="big">${ok} / ${ids.length}</div><div class="meta">정답률 ${ok+bad?Math.round(ok/(ok+bad)*100):0}% · 안 푼 문제 ${ids.length-ok-bad}개</div>
+  <div class="summary"><div class="meta">이번 풀이 결과</div><div class="big">${ok} / ${ids.length}</div><div class="meta">${view.mode==='exam'?`100점 환산 ${Math.round(ok/ids.length*100)}점 · 풀이 시간 ${Math.floor(view.elapsed/60000)}분 ${Math.round(view.elapsed%60000/1000)}초`:`정답률 ${ok+bad?Math.round(ok/(ok+bad)*100):0}% · 안 푼 문제 ${ids.length-ok-bad}개`}</div>
+  ${view.mode==='exam'?`<div class="omr">${ids.map((id,k)=>{const s=view.sess[id];return `<button class="${s.ok?'ok':'bad'}" data-i="${k}">${D.byId[id].no}</button>`}).join('')}</div>`:''}
   <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap">${wrong.length?'<button class="btn" id="rw">틀린 문제만 다시</button>':''}<button class="btn ghost" id="again">처음부터 다시</button><button class="btn ghost" id="rv">답안 검토</button></div></div>`;
   bindHeader();
   $('#back').onclick=()=>{location.hash='#tab='+view.back};
-  $('#again').onclick=()=>{view.sess={};move(0)};
+  $('#again').onclick=()=>{view.sess={};view.submitted=false;view.start=Date.now();move(0)};
+  document.querySelectorAll('.omr button').forEach(b=>b.onclick=()=>move(+b.dataset.i));
   $('#rv').onclick=()=>move(0);
-  const rw=$('#rw'); if(rw) rw.onclick=()=>{view.ids=wrong;wrong.forEach(id=>delete view.sess[id]);view.title+=' · 틀린 문제';move(0)};
+  const rw=$('#rw'); if(rw) rw.onclick=()=>{view.ids=wrong;view.mode='prac';wrong.forEach(id=>delete view.sess[id]);view.title+=' · 틀린 문제';move(0)};
 }
 
 document.addEventListener('keydown',e=>{
   if(!view.ids||!$('.solve'))return; if(e.target.tagName==='INPUT')return;
   if(/^[1-4]$/.test(e.key)){const b=document.querySelector(`.opt[data-k="${+e.key-1}"]`);if(b&&!b.disabled)b.click()}
-  else if(e.key==='Enter'){$('#chk')?.click()}
+  else if(e.key==='Enter'){if(view.mode!=='exam'||view.submitted)$('#chk')?.click()}
   else if(e.key==='ArrowRight'){$('#next')?.click()} else if(e.key==='ArrowLeft'){$('#prev')?.click()}
 });
 })();

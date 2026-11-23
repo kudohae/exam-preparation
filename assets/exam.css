@@ -128,3 +128,24 @@ kbd{font-family:inherit;font-size:11px;border:1px solid var(--line);border-botto
 .panel .ptitle{font-size:12.5px;font-weight:800;letter-spacing:.03em;margin:16px 0 6px;padding-top:12px;border-top:1px solid var(--line)}
 .panel .ex{white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
 .placeholder{color:var(--sub);font-size:14px;line-height:1.7;padding:6px 0}
+
+/* 회차 선택 모달 */
+.modal{position:fixed;inset:0;background:rgba(17,17,17,.45);display:flex;align-items:center;justify-content:center;padding:18px;z-index:50}
+.mbox{background:#fff;border-radius:var(--r);width:100%;max-width:400px;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.2)}
+.mhead{padding-bottom:12px;margin-bottom:12px;border-bottom:2px solid var(--line-strong)}
+.mhead h3{margin:0 0 2px;font-size:19px;font-weight:800;letter-spacing:-.02em}
+.mhead .meta{font-size:13px;color:var(--sub)}
+.mopt{display:block;width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:var(--r);padding:13px 14px;margin-bottom:8px}
+.mopt:hover{border-color:var(--ink)}
+.mopt b{display:block;font-size:16px;margin-bottom:3px}
+.mopt span{font-size:13.5px;color:var(--sub);line-height:1.55}
+.mclose{display:block;margin:4px auto 0;color:var(--sub)}
+/* 실전형 */
+.dots button.ans{background:#444;border-color:#444;color:#fff}
+.examstat{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.examstat div{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
+.examstat span{display:block;font-size:12px;color:var(--sub)}
+.examstat b{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.omr{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;max-width:560px;margin:18px auto 0}
+.omr button{width:34px;height:30px;border-radius:4px;border:1px solid;background:#fff;font-size:12.5px;font-weight:700;padding:0}
+.omr button.ok{border-color:var(--ok);color:var(--ok)} .omr button.bad{border-color:var(--bad);color:var(--bad);background:var(--bad-soft)}
