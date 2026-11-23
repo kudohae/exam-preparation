@@ -197,6 +197,16 @@ function render(){
   document.querySelectorAll('[data-self]').forEach(b=>b.onclick=()=>{const ok=b.dataset.self==='1';const r=S.res[q.id];if(r.ok!==ok){r.c=Math.max(0,(r.c||0)+(ok?1:-1))}r.ok=ok;view.sess[q.id].ok=ok;save();render()});
 }
 
+const AREAS1=[['경영혁신과 ERP',1,5],['인적자원 확보',6,14],['인적자원 개발',15,20],['임금 및 복리후생 관리',21,27],['노사관계',28,33]];
+function pts(q){return q.no<=5?2:(q.t==='s'?4:3)}
+function scoreHTML(ids){
+  const qs=ids.map(id=>D.byId[id]);
+  if(!view.p.ex||qs.length!==33||qs.some(q=>q.lv!=='1'))return '';
+  let tot=0;const rows=AREAS1.map(([nm,a,b])=>{let got=0,max=0;qs.filter(q=>q.no>=a&&q.no<=b).forEach(q=>{const p=pts(q);max+=p;const s=view.sess[q.id];if(s&&s.done&&s.ok)got+=p});tot+=got;return `<tr><td>${nm}</td><td>${a}~${b}번</td><td><b>${got}</b> / ${max}</td></tr>`}).join('');
+  return `<div class="score"><div class="meta">이론 점수 (1급 배점 기준)</div><div class="big">${tot}<small>점</small></div><div class="meta ${tot>=60?'pass':'fail'}">${tot>=60?'과락 기준 60점 이상':'과락 기준 60점 미만'}</div>
+  <table class="area"><thead><tr><th>영역</th><th>문항</th><th>점수</th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="hint">객관식 1~5번 2점, 6번부터 객관식 3점, 주관식 4점으로 계산했습니다. 1~5번은 Claude 작성 정답 기준입니다.</div></div>`;
+}
 function submitExam(){
   const left=view.ids.filter(id=>{const s=view.sess[id];return !(s&&(s.sel!=null||(s.txt||'').trim()))}).length;
   if(left&&!confirm(`아직 답하지 않은 문제가 ${left}개 있습니다. 그래도 제출할까요?`))return;
@@ -213,7 +223,7 @@ function summary(){
   const wrong=ids.filter(id=>view.sess[id]&&view.sess[id].done&&!view.sess[id].ok);
   const pend=ids.filter(id=>{const s=view.sess[id];return s&&!s.done&&(s.sel!=null||(s.txt||'').trim())}).length;
   app.innerHTML=header()+`<div class="qhead"><button class="back" id="back">← 목록</button><div class="qtitle">${esc(view.title)}</div></div>
-  <div class="summary"><div class="meta">이번 풀이 결과</div><div class="big">${ok} / ${ids.length}</div><div class="meta">${view.mode==='exam'?`100점 환산 ${Math.round(ok/ids.length*100)}점 · 풀이 시간 ${Math.floor(view.elapsed/60000)}분 ${Math.round(view.elapsed%60000/1000)}초`:`정답률 ${ok+bad?Math.round(ok/(ok+bad)*100):0}% · 안 푼 문제 ${ids.length-ok-bad}개${pend?` (고르기만 하고 확인 안 한 문제 ${pend}개)`:''}`}</div>
+  <div class="summary">${scoreHTML(ids)}<div class="meta">이번 풀이 결과</div><div class="big">${ok} / ${ids.length}</div><div class="meta">${view.mode==='exam'?`${scoreHTML(ids)?'':`100점 환산 ${Math.round(ok/ids.length*100)}점 · `}풀이 시간 ${Math.floor(view.elapsed/60000)}분 ${Math.round(view.elapsed%60000/1000)}초`:`정답률 ${ok+bad?Math.round(ok/(ok+bad)*100):0}% · 안 푼 문제 ${ids.length-ok-bad}개${pend?` (고르기만 하고 확인 안 한 문제 ${pend}개)`:''}`}</div>
   ${view.mode==='exam'?`<div class="omr">${ids.map((id,k)=>{const s=view.sess[id];return `<button class="${s.ok?'ok':'bad'}" data-i="${k}">${D.byId[id].no}</button>`}).join('')}</div>`:''}
   <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap">${wrong.length?'<button class="btn" id="rw">틀린 문제만 다시</button>':''}<button class="btn ghost" id="again">처음부터 다시</button><button class="btn ghost" id="rv">답안 검토</button></div></div>`;
   bindHeader();
