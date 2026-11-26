@@ -177,3 +177,7 @@ kbd{font-family:inherit;font-size:11px;border:1px solid var(--line);border-botto
 .hrow .hm{flex:1}
 .hrow .hs{flex:none}
 .mbox{max-height:calc(100vh - 36px);overflow:auto}
+.hctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.simgs{display:flex;flex-direction:column;gap:8px}
+.simgs img{width:100%;border:1px solid var(--line);display:block}
+@media (min-width:940px){.solve.p{grid-template-columns:minmax(0,1fr) 460px}}

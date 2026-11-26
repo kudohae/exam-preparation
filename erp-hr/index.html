@@ -13,16 +13,17 @@
 const CIR='①②③④';
 const LS='erphr.v1';
 let D=null, S=load(), view={};
-function load(){try{const s=JSON.parse(localStorage.getItem(LS)||'{}');s.res=s.res||{};s.bm=s.bm||{};s.hist=s.hist||{};s.lv=s.lv||'all';return s}catch(e){return {res:{},bm:{},hist:{},lv:'all'}}}
+function load(){try{const s=JSON.parse(localStorage.getItem(LS)||'{}');s.res=s.res||{};s.bm=s.bm||{};s.hist=s.hist||{};s.lv=s.lv||'all';s.sub=s.sub||'t';return s}catch(e){return {res:{},bm:{},hist:{},lv:'all',sub:'t'}}}
 function save(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const $=s=>document.querySelector(s);
 const app=$('#app');
 
-fetch('data.json').then(r=>r.json()).then(d=>{D=d;D.byId={};D.qs.forEach(q=>D.byId[q.id]=q);D.unit={};D.units.forEach(u=>D.unit[u.key]=u);window.addEventListener('hashchange',route);route()})
+Promise.all([fetch('data.json').then(r=>r.json()),fetch('data_prac.json').then(r=>r.json())]).then(([d,p])=>{d.units.forEach(u=>u.part=u.code[0]);d.qs=d.qs.concat(p.qs);d.units=d.units.concat(p.units);Object.assign(d.parts,p.parts);D=d;D.byId={};D.qs.forEach(q=>D.byId[q.id]=q);D.unit={};D.units.forEach(u=>D.unit[u.key]=u);window.addEventListener('hashchange',route);route()})
  .catch(()=>app.innerHTML='<div class="empty">문제 데이터를 불러오지 못했습니다. 새로고침해 주세요.</div>');
 
-function lvOk(q){return S.lv==='all'||q.lv===S.lv}
+function lvOk(q){return S.sub==='p'?q.lv==='p':(q.lv!=='p'&&(S.lv==='all'||q.lv===S.lv))}
+function lvName(lv){return lv==='p'?'1급 실무':lv+'급'}
 function stat(list){let ok=0,bad=0;list.forEach(q=>{const r=S.res[q.id];if(r){r.ok?ok++:bad++}});return {ok,bad,n:list.length}}
 function barHTML(s){if(!s.n)return '';return `<div class="bar"><i class="g" style="width:${s.ok/s.n*100}%"></i><i class="r" style="width:${s.bad/s.n*100}%"></i></div>`}
 function parseHash(){const h=location.hash.replace(/^#\/?/,'');const p={};h.split('&').forEach(kv=>{if(!kv)return;const[k,v]=kv.split('=');p[k]=decodeURIComponent(v||'')});return p}
@@ -30,9 +31,12 @@ function go(p){location.hash='#'+Object.entries(p).map(([k,v])=>k+'='+encodeURIC
 
 function header(){
   const lv=[['all','전체'],['1','1급'],['2','2급']].map(([k,t])=>`<button data-lv="${k}" class="${S.lv===k?'on':''}">${t}</button>`).join('');
-  return `<header class="top"><a class="brand" href="#">ERP정보관리사 인사 · 이론 기출<small>99회~116회 (106회 제외) · ${D.qs.length}문항</small></a><div class="seg" id="lvseg">${lv}</div></header>`;
+  const sb=[['t','이론'],['p','실무']].map(([k,t])=>`<button data-sub="${k}" class="${S.sub===k?'on':''}">${t}</button>`).join('');
+  const n=D.qs.filter(lvOk).length;
+  return `<header class="top"><a class="brand" href="#">ERP정보관리사 인사 · ${S.sub==='p'?'1급 실무':'이론'} 기출<small>99회~116회 (106회 제외) · ${n}문항</small></a><div class="hctl"><div class="seg" id="subseg">${sb}</div>${S.sub==='p'?'':`<div class="seg" id="lvseg">${lv}</div>`}</div></header>`;
 }
-function bindHeader(){document.querySelectorAll('#lvseg button').forEach(b=>b.onclick=()=>{S.lv=b.dataset.lv;save();route()})}
+function bindHeader(){document.querySelectorAll('#lvseg button').forEach(b=>b.onclick=()=>{S.lv=b.dataset.lv;save();route()});
+  document.querySelectorAll('#subseg button').forEach(b=>b.onclick=()=>{if(S.sub===b.dataset.sub)return;S.sub=b.dataset.sub;save();view.key=null;location.hash='#tab='+(view.tab||'ex');route()})}
 
 function route(){
   const p=parseHash();
@@ -45,19 +49,19 @@ function home(tab){
   let body='';
   if(tab==='ex'){
     const exams=[...new Set(D.qs.map(q=>q.ex))].sort((a,b)=>b-a);
-    const lvs=S.lv==='all'?['1','2']:[S.lv];
+    const lvs=S.sub==='p'?['p']:(S.lv==='all'?['1','2']:[S.lv]);
     let cards='';
     exams.forEach(ex=>lvs.forEach(lv=>{
       const list=D.qs.filter(q=>q.ex===ex&&q.lv===lv); if(!list.length)return;
       const s=stat(list), q0=list[0];
       const H=S.hist[ex+'-'+lv]||[],h=H[0];
-      cards+=`<button class="card" data-ex="${ex}-${lv}"><h3>${ex}회 · ${lv}급</h3><div class="meta">${q0.y}년 ${q0.m}월 · ${list.length}문항</div><div class="meta last">${h?`최근 ${h.score!=null?h.score+'점':h.ok+'/'+h.n+' 정답'} · 기록 ${H.length}회`:'풀이 기록 없음'}</div>${barHTML(s)}</button>`;
+      cards+=`<button class="card" data-ex="${ex}-${lv}"><h3>${ex}회 · ${lvName(lv)}</h3><div class="meta">${q0.y}년 ${q0.m}월 · ${list.length}문항</div><div class="meta last">${h?`최근 ${h.score!=null?h.score+'점':h.ok+'/'+h.n+' 정답'} · 기록 ${H.length}회`:'풀이 기록 없음'}</div>${barHTML(s)}</button>`;
     }));
     body=`<div class="grid">${cards}</div>`;
   } else if(tab==='unit'){
     let cur='', html='';
-    D.units.forEach(u=>{
-      const pk=u.code[0];
+    D.units.filter(u=>(S.sub==='p')===u.key.startsWith('pm')).forEach(u=>{
+      const pk=u.part;
       if(pk!==cur){if(cur)html+='</div>';cur=pk;html+=`<div class="part">${esc(D.parts[pk])}</div><div class="list">`}
       const list=D.qs.filter(q=>q.unit===u.key&&lvOk(q)); const s=stat(list);
       html+=`<button class="card" data-go="unit=${u.key}" ${list.length?'':'disabled'}><div class="unitrow"><span class="code">${u.code}</span><span class="nm">${esc(u.name)}</span><span class="ct">${list.length}문항${s.ok+s.bad?` · ${s.ok}/${s.ok+s.bad}`:''}</span></div>${barHTML(s)}</button>`;
@@ -74,7 +78,7 @@ function home(tab){
     body+=`<div class="note">풀이 기록은 이 브라우저에만 저장됩니다. ${solved}문항 풀이 기록이 있습니다. <button class="back" id="reset" style="margin-left:6px">기록 전체 삭제</button></div>`;
   }
   app.innerHTML=header()+`<div class="tabs"><button data-tab="ex" class="${tab==='ex'?'on':''}">회차별</button><button data-tab="unit" class="${tab==='unit'?'on':''}">주제별</button><button data-tab="wrong" class="${tab==='wrong'?'on':''}">오답노트</button><button data-tab="bm" class="${tab==='bm'?'on':''}">북마크</button></div>`+body+
-   `<div class="note">ERP 영역(1~5번)은 공식 정답이 공개되지 않아 Claude가 정답과 해설을 작성했고, 해당 문항에 "Claude 작성 정답" 표시가 있습니다. 101회는 PDF에서 추출해 띄어쓰기가 어긋난 곳이 있을 수 있습니다. 주제 분류는 출제기준(실라버스)과 키워드를 바탕으로 했습니다.</div>`;
+   (S.sub==='p'?`<div class="note">실무는 더존 iCUBE 인사 1급 문제입니다. 회차별 백데이터를 프로그램에 복원해 직접 풀고, 여기서는 답만 골라 채점하세요. 정답을 확인하면 공식 풀이와 풀이 화면 캡처가 나옵니다. 주제별 탭은 출제 메뉴 기준이고, 메뉴 앞 번호는 그 메뉴가 가장 자주 나온 문항 번호입니다. 101회는 PDF에서 추출했습니다.</div>`:`<div class="note">ERP 영역(1~5번)은 공식 정답이 공개되지 않아 Claude가 정답과 해설을 작성했고, 해당 문항에 "Claude 작성 정답" 표시가 있습니다. 101회는 PDF에서 추출해 띄어쓰기가 어긋난 곳이 있을 수 있습니다. 주제 분류는 출제기준(실라버스)과 키워드를 바탕으로 했습니다.</div>`);
   bindHeader();
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{view.tab=b.dataset.tab;history.replaceState(null,'','#tab='+b.dataset.tab);home(b.dataset.tab)});
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{location.hash='#'+b.dataset.go});
@@ -90,7 +94,7 @@ function histList(exlv){
 function openMode(exlv){
   const[ex,lv]=exlv.split('-');const list=D.qs.filter(q=>q.ex==ex&&q.lv===lv);const q0=list[0];
   const m=document.createElement('div');m.className='modal';
-  m.innerHTML=`<div class="mbox" role="dialog" aria-modal="true"><div class="mhead"><h3>${ex}회 ${lv}급</h3><div class="meta">${q0.y}년 ${q0.m}월 · ${list.length}문항</div></div>
+  m.innerHTML=`<div class="mbox" role="dialog" aria-modal="true"><div class="mhead"><h3>${ex}회 ${lvName(lv)}</h3><div class="meta">${q0.y}년 ${q0.m}월 · ${list.length}문항</div></div>
   <button class="mopt" data-m="exam"><b>실전형</b><span>시험처럼 끝까지 답을 고른 뒤 한 번에 제출하고 채점합니다. 풀이 시간이 함께 표시됩니다.</span></button>
   <button class="mopt" data-m="prac"><b>연습형</b><span>한 문제씩 정답 확인을 눌러 바로 채점하고 해설을 봅니다.</span></button>
   ${histList(exlv)}
@@ -107,9 +111,9 @@ function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor
 function setKey(p){const o={...p};delete o.q;return JSON.stringify(o)}
 function startSet(p){
   let list,title,sub='',back='ex';
-  if(p.ex&&p.rec){const[ex,lv]=p.ex.split('-');list=D.qs.filter(q=>q.ex==ex&&q.lv===lv).sort((a,b)=>a.no-b.no);title=`${ex}회 ${lv}급 · 지난 기록`;back='ex'}
-  else if(p.ex){const[ex,lv]=p.ex.split('-');list=D.qs.filter(q=>q.ex==ex&&q.lv===lv).sort((a,b)=>a.no-b.no);title=`${ex}회 ${lv}급`;sub=list[0]?`${list[0].y}년 ${list[0].m}월`:'';back='ex'}
-  else if(p.unit){const u=D.unit[p.unit];list=D.qs.filter(q=>q.unit===p.unit&&lvOk(q));title=u?`${u.code} ${u.name}`:'주제';sub=S.lv==='all'?'1·2급':S.lv+'급';back='unit'}
+  if(p.ex&&p.rec){const[ex,lv]=p.ex.split('-');list=D.qs.filter(q=>q.ex==ex&&q.lv===lv).sort((a,b)=>a.no-b.no);title=`${ex}회 ${lvName(lv)} · 지난 기록`;back='ex'}
+  else if(p.ex){const[ex,lv]=p.ex.split('-');list=D.qs.filter(q=>q.ex==ex&&q.lv===lv).sort((a,b)=>a.no-b.no);title=`${ex}회 ${lvName(lv)}`;sub=list[0]?`${list[0].y}년 ${list[0].m}월`:'';back='ex'}
+  else if(p.unit){const u=D.unit[p.unit];list=D.qs.filter(q=>q.unit===p.unit&&lvOk(q));title=u?`${u.code} ${u.name}`:'주제';sub=S.sub==='p'?'1급 실무':(S.lv==='all'?'1·2급':S.lv+'급');back='unit'}
   else if(p.bm){list=D.qs.filter(q=>lvOk(q)&&S.bm[q.id]);title='북마크';back='bm'}
   else {list=D.qs.filter(q=>lvOk(q)&&S.res[q.id]&&!S.res[q.id].ok);title='오답노트';back='wrong'}
   const key=setKey(p);
@@ -155,7 +159,7 @@ function render(){
   const byNo=!!view.p.ex;
   const dots=ids.map((id,k)=>{const s=view.sess[id];const picked=s&&(s.sel!=null||(s.txt||'').trim());const cls=(s&&s.done?(s.ok?'ok':'bad'):(picked?(exam?'ans':'pend'):''))+(k===i?' cur':'');return `<button class="${cls}" data-i="${k}">${byNo?D.byId[id].no:k+1}</button>`}).join('');
   const bm=!!S.bm[q.id];
-  const meta=`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 ${q.lv}급 · ${u?u.code+' '+esc(u.name):''}`;
+  const meta=q.lv==='p'?`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 1급 실무 · ${esc(q.kw)}`:`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 ${q.lv}급 · ${u?u.code+' '+esc(u.name):''}`;
   let tags=`<span class="tag">${q.t==='s'?'주관식':'객관식'}</span>`;
   if(q.c) tags+=`<span class="tag c">Claude 작성 정답</span>`;
   const boki=q.boki.length?`<div class="boki"><b>[보기]</b>${q.boki.map(esc).join('\n')}</div>`:'';
@@ -181,7 +185,8 @@ function render(){
     const ansTxt=q.t==='m'?`${q.ans} ${esc(q.opts[CIR.indexOf(q.ans)]||'')}`:esc(q.ans);
     panel=`<div class="result ${sess.ok?'ok':'bad'}"><div class="v">${sess.ok?'정답입니다':'오답입니다'}</div><div>정답: <span class="ans">${ansTxt}</span></div>${q.alt?`<div class="alt">복수정답·채점 기준: ${esc(q.alt)}</div>`:''}
     ${q.t==='s'?`<div class="self"><span class="hint" style="margin:0;align-self:center">자동 채점이 틀렸다면</span><button data-self="1">맞은 걸로</button><button data-self="0">틀린 걸로</button></div>`:''}</div>
-    <div class="ptitle">해설</div><div class="ex">${q.expl?esc(q.expl):'해설이 없는 문항입니다.'}</div>
+    <div class="ptitle">${q.lv==='p'?'풀이':'해설'}</div><div class="ex">${q.expl?esc(q.expl):'해설이 없는 문항입니다.'}</div>
+    ${(q.simgs||[]).length?`<div class="ptitle">풀이 화면 (${q.simgs.length}장 · 누르면 원본 크기)</div><div class="simgs">${q.simgs.map(s=>`<a href="${s}" target="_blank" rel="noopener"><img src="${s}" loading="lazy" alt="풀이 화면"></a>`).join('')}</div>`:''}
     ${q.c?`<div class="warnbox">공식 정답이 공개되지 않은 문항이라 Claude가 정답과 해설을 작성했습니다.${q.low?' 판단이 갈릴 여지가 있는 문항이니 교재로 한 번 더 확인하세요.':''}</div>`:''}
     ${q.pdf?`<div class="warnbox plain">101회 문항은 PDF에서 추출해 띄어쓰기가 일부 어긋날 수 있습니다.</div>`:''}`;
   } else panel=`<div class="placeholder">왼쪽에서 ${q.t==='m'?'보기를 고르고':'답을 입력하고'} 정답 확인을 누르면 여기에 정답과 해설이 표시됩니다.</div>`;
@@ -190,7 +195,7 @@ function render(){
   app.innerHTML=header()+`<div class="qhead"><button class="back" id="back">← 목록</button><div class="qtitle">${esc(view.title)}<span>${esc(view.sub)}</span></div></div>
   <div class="pager"><button class="link" id="prev" ${i===0?'disabled':''}>← 이전</button><span class="pos"><b>${i+1}</b> / ${ids.length}</span><button class="link" id="next">${last?(exam?'제출 →':'결과 보기 →'):'다음 →'}</button></div>
   <details class="qlist" ${view.open||exam?'open':''}><summary>문제 목록</summary><div class="dots">${dots}</div></details>
-  <div class="solve"><div class="q"><div class="qmeta"><span>${meta}</span><button class="bmk ${bm?'on':''}" id="bmk" title="북마크">${bm?'★ 북마크됨':'☆ 북마크'}</button></div><div class="tags">${tags}</div>
+  <div class="solve ${q.lv==='p'?'p':''}"><div class="q"><div class="qmeta"><span>${meta}</span><button class="bmk ${bm?'on':''}" id="bmk" title="북마크">${bm?'★ 북마크됨':'☆ 북마크'}</button></div><div class="tags">${tags}</div>
   <div class="stem">${esc(q.stem)}</div>${boki}${imgs}${ansArea}<div class="actions">${checkBtn}</div></div>
   <aside class="panel">${panel}</aside></div>
   <div class="hint" style="text-align:center;margin-top:18px">키보드: <kbd>1</kbd>~<kbd>4</kbd> 선택 · <kbd>Enter</kbd> 정답 확인 · <kbd>←</kbd><kbd>→</kbd> 이동</div>`;
@@ -210,11 +215,17 @@ function render(){
 }
 
 const AREAS1=[['경영혁신과 ERP',1,5],['인적자원 확보',6,14],['인적자원 개발',15,20],['임금 및 복리후생 관리',21,27],['노사관계',28,33]];
-function pts(q){return q.no<=5?2:(q.t==='s'?4:3)}
+function pts(q){return q.lv==='p'?4:(q.no<=5?2:(q.t==='s'?4:3))}
+const AREASP=[['인사 기본정보관리',1,3],['ERP 근태/급여관리',4,15],['ERP 소득/정산관리',16,25]];
+function scheme(qs){
+  if(qs.length===33&&qs.every(q=>q.lv==='1'))return {areas:AREAS1,label:'이론 점수 (1급 배점 기준)',note:'객관식 1~5번 2점, 6번부터 객관식 3점, 주관식 4점으로 계산했습니다. 1~5번은 Claude 작성 정답 기준입니다.'};
+  if(qs.length===25&&qs.every(q=>q.lv==='p'))return {areas:AREASP,label:'실무 점수 (1급 배점 기준)',note:'모든 문항을 4점으로 계산했습니다.'};
+  return null;
+}
 function calcScore(ids,sess){
-  const qs=ids.map(id=>D.byId[id]);
-  if(qs.length!==33||qs.some(q=>q.lv!=='1'))return null;
-  let tot=0;AREAS1.forEach(([nm,a,b])=>{qs.filter(q=>q.no>=a&&q.no<=b).forEach(q=>{const s=sess[q.id];if(s&&s.done&&s.ok)tot+=pts(q)})});
+  const qs=ids.map(id=>D.byId[id]);const sc=scheme(qs);
+  if(!sc)return null;
+  let tot=0;sc.areas.forEach(([nm,a,b])=>{qs.filter(q=>q.no>=a&&q.no<=b).forEach(q=>{const s=sess[q.id];if(s&&s.done&&s.ok)tot+=pts(q)})});
   return {tot};
 }
 function fmtDate(t){const d=new Date(t);const z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}.${z(d.getMonth()+1)}.${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`}
@@ -229,12 +240,12 @@ function saveAttempt(){
   const k=view.p.ex;const L=(S.hist[k]=S.hist[k]||[]).filter(r=>r.id!==rec.id);L.unshift(rec);S.hist[k]=L.slice(0,30);save();
 }
 function scoreHTML(ids){
-  const qs=ids.map(id=>D.byId[id]);
-  if(!view.p.ex||qs.length!==33||qs.some(q=>q.lv!=='1'))return '';
-  let tot=0;const rows=AREAS1.map(([nm,a,b])=>{let got=0,max=0;qs.filter(q=>q.no>=a&&q.no<=b).forEach(q=>{const p=pts(q);max+=p;const s=view.sess[q.id];if(s&&s.done&&s.ok)got+=p});tot+=got;return `<tr><td>${nm}</td><td>${a}~${b}번</td><td><b>${got}</b> / ${max}</td></tr>`}).join('');
-  return `<div class="score"><div class="meta">이론 점수 (1급 배점 기준)</div><div class="big">${tot}<small>점</small></div><div class="meta ${tot>=60?'pass':'fail'}">${tot>=60?'과락 기준 60점 이상':'과락 기준 60점 미만'}</div>
+  const qs=ids.map(id=>D.byId[id]);const sc=scheme(qs);
+  if(!view.p.ex||!sc)return '';
+  let tot=0;const rows=sc.areas.map(([nm,a,b])=>{let got=0,max=0;qs.filter(q=>q.no>=a&&q.no<=b).forEach(q=>{const p=pts(q);max+=p;const s=view.sess[q.id];if(s&&s.done&&s.ok)got+=p});tot+=got;return `<tr><td>${nm}</td><td>${a}~${b}번</td><td><b>${got}</b> / ${max}</td></tr>`}).join('');
+  return `<div class="score"><div class="meta">${sc.label}</div><div class="big">${tot}<small>점</small></div><div class="meta ${tot>=60?'pass':'fail'}">${tot>=60?'과락 기준 60점 이상':'과락 기준 60점 미만'}</div>
   <table class="area"><thead><tr><th>영역</th><th>문항</th><th>점수</th></tr></thead><tbody>${rows}</tbody></table>
-  <div class="hint">객관식 1~5번 2점, 6번부터 객관식 3점, 주관식 4점으로 계산했습니다. 1~5번은 Claude 작성 정답 기준입니다.</div></div>`;
+  <div class="hint">${sc.note}</div></div>`;
 }
 function submitExam(){
   const left=view.ids.filter(id=>{const s=view.sess[id];return !(s&&(s.sel!=null||(s.txt||'').trim()))}).length;
