@@ -159,7 +159,7 @@ function render(){
   const byNo=!!view.p.ex;
   const dots=ids.map((id,k)=>{const s=view.sess[id];const picked=s&&(s.sel!=null||(s.txt||'').trim());const cls=(s&&s.done?(s.ok?'ok':'bad'):(picked?(exam?'ans':'pend'):''))+(k===i?' cur':'');return `<button class="${cls}" data-i="${k}">${byNo?D.byId[id].no:k+1}</button>`}).join('');
   const bm=!!S.bm[q.id];
-  const meta=q.lv==='p'?`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 1급 실무 · ${esc(q.kw)}`:`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 ${q.lv}급 · ${u?u.code+' '+esc(u.name):''}`;
+  const meta=q.lv==='p'?`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 1급 실무`:`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 ${q.lv}급 · ${u?u.code+' '+esc(u.name):''}`;
   let tags=`<span class="tag">${q.t==='s'?'주관식':'객관식'}</span>`;
   if(q.c) tags+=`<span class="tag c">Claude 작성 정답</span>`;
   const boki=q.boki.length?`<div class="boki"><b>[보기]</b>${q.boki.map(esc).join('\n')}</div>`:'';
@@ -185,7 +185,7 @@ function render(){
     const ansTxt=q.t==='m'?`${q.ans} ${esc(q.opts[CIR.indexOf(q.ans)]||'')}`:esc(q.ans);
     panel=`<div class="result ${sess.ok?'ok':'bad'}"><div class="v">${sess.ok?'정답입니다':'오답입니다'}</div><div>정답: <span class="ans">${ansTxt}</span></div>${q.alt?`<div class="alt">복수정답·채점 기준: ${esc(q.alt)}</div>`:''}
     ${q.t==='s'?`<div class="self"><span class="hint" style="margin:0;align-self:center">자동 채점이 틀렸다면</span><button data-self="1">맞은 걸로</button><button data-self="0">틀린 걸로</button></div>`:''}</div>
-    <div class="ptitle">${q.lv==='p'?'풀이':'해설'}</div><div class="ex">${q.expl?esc(q.expl):'해설이 없는 문항입니다.'}</div>
+    ${q.lv==='p'&&q.kw?`<div class="ptitle">출제 메뉴</div><div>${esc(q.kw)}</div>`:''}<div class="ptitle">${q.lv==='p'?'풀이':'해설'}</div><div class="ex">${q.expl?esc(q.expl):'해설이 없는 문항입니다.'}</div>
     ${(q.simgs||[]).length?`<div class="ptitle">풀이 화면 (${q.simgs.length}장 · 누르면 원본 크기)</div><div class="simgs">${q.simgs.map(s=>`<a href="${s}" target="_blank" rel="noopener"><img src="${s}" loading="lazy" alt="풀이 화면"></a>`).join('')}</div>`:''}
     ${q.c?`<div class="warnbox">공식 정답이 공개되지 않은 문항이라 Claude가 정답과 해설을 작성했습니다.${q.low?' 판단이 갈릴 여지가 있는 문항이니 교재로 한 번 더 확인하세요.':''}</div>`:''}
     ${q.pdf?`<div class="warnbox plain">101회 문항은 PDF에서 추출해 띄어쓰기가 일부 어긋날 수 있습니다.</div>`:''}`;
