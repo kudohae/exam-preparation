@@ -75,6 +75,8 @@ function home(tab){
     const solved=D.qs.filter(q=>lvOk(q)&&S.res[q.id]).length;
     body=list.length?`<div class="card"><h3>오답 ${list.length}문항</h3><div class="meta">마지막으로 풀었을 때 틀린 문제만 모았습니다. 다시 맞히면 목록에서 빠집니다.</div><div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn" data-go="wrong=1">오답 다시 풀기</button><button class="btn ghost" data-go="wrong=1&shuffle=1">섞어서 풀기</button></div></div>`
       :`<div class="empty">${solved?'틀린 문제가 없습니다.':'아직 푼 문제가 없습니다.'}</div>`;
+    const allW=D.qs.filter(q=>S.res[q.id]&&!S.res[q.id].ok).length;
+    body+=`<div class="card" style="margin-top:10px"><h3>Claude에게 보낼 오답 추출</h3><div class="meta">이론·실무, 1·2급을 모두 합친 오답 ${allW}문항을 문제, 선지, 정답, 내가 고른 답과 함께 텍스트로 뽑아 복사합니다. 대화창에 그대로 붙여 넣으세요.</div><div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn" id="exp" ${allW?'':'disabled'}>오답 추출해서 복사</button></div><textarea id="expout" readonly style="display:none;width:100%;height:160px;margin-top:10px;font:12px/1.4 ui-monospace,monospace;border:1px solid var(--line);border-radius:6px;padding:8px"></textarea><div class="hint" id="expmsg"></div></div>`;
     body+=`<div class="note">풀이 기록은 이 브라우저에만 저장됩니다. ${solved}문항 풀이 기록이 있습니다. <button class="back" id="reset" style="margin-left:6px">기록 전체 삭제</button></div>`;
   }
   app.innerHTML=header()+`<div class="tabs"><button data-tab="ex" class="${tab==='ex'?'on':''}">회차별</button><button data-tab="unit" class="${tab==='unit'?'on':''}">주제별</button><button data-tab="wrong" class="${tab==='wrong'?'on':''}">오답노트</button><button data-tab="bm" class="${tab==='bm'?'on':''}">북마크</button></div>`+body+
@@ -83,6 +85,10 @@ function home(tab){
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{view.tab=b.dataset.tab;history.replaceState(null,'','#tab='+b.dataset.tab);home(b.dataset.tab)});
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{location.hash='#'+b.dataset.go});
   document.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>openMode(b.dataset.ex));
+  const ex=$('#exp'); if(ex) ex.onclick=()=>{const t=exportWrong();const ta=$('#expout');ta.value=t;ta.style.display='block';ta.select();
+    const done=m=>{$('#expmsg').textContent=m};
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>done(`복사했습니다. ${t.length.toLocaleString()}자입니다. 대화창에 붙여 넣으세요.`),()=>{try{document.execCommand('copy');done('복사했습니다.')}catch(e){done('자동 복사가 안 됐습니다. 위 칸을 전체 선택해 복사하세요.')}})}
+    else{try{document.execCommand('copy');done('복사했습니다.')}catch(e){done('위 칸을 전체 선택해 복사하세요.')}}};
   const r=$('#reset'); if(r) r.onclick=()=>{if(confirm('풀이 기록을 모두 삭제할까요?')){S.res={};save();home('wrong')}};
 }
 
@@ -139,15 +145,32 @@ function variants(q){
   if(q.alt&&q.alt.length<60&&!/[다요]\.?$/.test(q.alt.trim())) q.alt.split(/[,/]|또는/).forEach(x=>{x=x.trim();if(x){v.add(normAns(x));v.add(normAns(x.replace(/\([^)]*\)/g,'')))}});
   return v;
 }
-function record(q,ok){
-  const r=S.res[q.id]||{n:0,c:0}; r.ok=ok; r.n++; if(ok)r.c=(r.c||0)+1; r.t=Date.now(); S.res[q.id]=r; save();
+function record(q,ok,s){
+  const r=S.res[q.id]||{n:0,c:0}; r.ok=ok; r.n++; if(ok)r.c=(r.c||0)+1; r.t=Date.now();
+  if(s){if(q.t==='m'&&s.sel!=null)r.pick=CIR[s.sel];else if(q.t==='s')r.pick=s.txt||'';}
+  S.res[q.id]=r; save();
+}
+function lastPick(q){
+  const r=S.res[q.id]; if(r&&r.pick!=null)return r.pick;
+  const k=q.lv==='p'?q.ex+'-p':q.ex+'-'+q.lv; const L=S.hist[k]||[];
+  for(const h of L){const a=h.ans&&h.ans[q.id];if(a){if(q.t==='m'&&a.sel!=null)return CIR[a.sel];if(a.txt!=null)return a.txt}}
+  return null;
+}
+function exportWrong(){
+  const W=D.qs.filter(q=>S.res[q.id]&&!S.res[q.id].ok);
+  const out={note:'ERP정보관리사 인사 기출 오답 목록. 마지막 풀이에서 틀린 문항.',exported:new Date().toISOString(),count:W.length,
+    items:W.map(q=>{const r=S.res[q.id];const o={id:q.id,kind:q.lv==='p'?'실무1급':'이론'+q.lv+'급',round:q.ex+'회',no:q.no,
+      topic:q.lv==='p'?q.kw:(D.unit[q.unit]?D.unit[q.unit].code+' '+D.unit[q.unit].name:''),type:q.t==='s'?'주관식':'객관식',
+      q:q.stem};if(q.boki.length)o.boki=q.boki.join('\n');if(q.t==='m')o.opts=q.opts.map((x,i)=>CIR[i]+' '+x);
+      o.answer=q.ans;const p=lastPick(q);o.my=p==null?'(기록 없음)':p;o.tries=r.n;o.correct=r.c??0;if(q.c)o.claudeAnswer=true;return o})};
+  return JSON.stringify(out);
 }
 function check(){
   const q=D.byId[view.ids[view.i]], s=view.sess[q.id]||(view.sess[q.id]={});
   if(s.done)return;
   if(q.t==='m'){if(s.sel==null)return; s.ok=CIR[s.sel]===q.ans}
   else {s.txt=($('#sa')?.value||''); s.ok=s.txt.trim()!==''&&variants(q).has(normAns(s.txt))}
-  s.done=true; record(q,s.ok); render();
+  s.done=true; record(q,s.ok,s); render();
 }
 function retry(){const q=D.byId[view.ids[view.i]];delete view.sess[q.id];render()}
 
@@ -253,7 +276,7 @@ function submitExam(){
   clearInterval(view.tick); view.elapsed=Date.now()-view.start;
   view.ids.forEach(id=>{const q=D.byId[id];const s=view.sess[id]||(view.sess[id]={});
     if(q.t==='m')s.ok=s.sel!=null&&CIR[s.sel]===q.ans; else s.ok=(s.txt||'').trim()!==''&&variants(q).has(normAns(s.txt));
-    s.done=true; record(q,s.ok)});
+    s.done=true; record(q,s.ok,s)});
   view.submitted=true; summary();
 }
 function summary(){
