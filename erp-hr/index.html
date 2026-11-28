@@ -33,7 +33,7 @@ function header(){
   const lv=[['all','전체'],['1','1급'],['2','2급']].map(([k,t])=>`<button data-lv="${k}" class="${S.lv===k?'on':''}">${t}</button>`).join('');
   const sb=[['t','이론'],['p','실무']].map(([k,t])=>`<button data-sub="${k}" class="${S.sub===k?'on':''}">${t}</button>`).join('');
   const n=D.qs.filter(lvOk).length;
-  return `<header class="top"><a class="brand" href="#">ERP정보관리사 인사 · ${S.sub==='p'?'1급 실무':'이론'} 기출<small>99회~116회 (106회 제외) · ${n}문항</small></a><div class="hctl"><div class="seg" id="subseg">${sb}</div>${S.sub==='p'?'':`<div class="seg" id="lvseg">${lv}</div>`}</div></header>`;
+  return `<header class="top"><a class="brand" href="#">ERP정보관리사 인사 · ${S.sub==='p'?'1급 실무':'이론'} 기출<small>99회~117회 (106회 제외) · ${n}문항</small></a><div class="hctl"><div class="seg" id="subseg">${sb}</div>${S.sub==='p'?'':`<div class="seg" id="lvseg">${lv}</div>`}</div></header>`;
 }
 function bindHeader(){document.querySelectorAll('#lvseg button').forEach(b=>b.onclick=()=>{S.lv=b.dataset.lv;save();route()});
   document.querySelectorAll('#subseg button').forEach(b=>b.onclick=()=>{if(S.sub===b.dataset.sub)return;S.sub=b.dataset.sub;save();view.key=null;location.hash='#tab='+(view.tab||'ex');route()})}
@@ -185,6 +185,8 @@ function render(){
   const meta=q.lv==='p'?`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 1급 실무`:`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 ${q.lv}급 · ${u?u.code+' '+esc(u.name):''}`;
   let tags=`<span class="tag">${q.t==='s'?'주관식':'객관식'}</span>`;
   if(q.c) tags+=`<span class="tag c">Claude 작성 정답</span>`;
+  if(q.bno) tags+=`<span class="tag">B형 ${q.bno}번</span>`;
+  if(q.prov) tags+=`<span class="tag c">가답안</span>`;
   const boki=q.boki.length?`<div class="boki"><b>[보기]</b>${q.boki.map(esc).join('\n')}</div>`:'';
   const imgs=(q.imgs||[]).map(s=>`<img class="qimg" src="${s}" alt="문제 이미지" loading="lazy">`).join('');
   let ansArea='';
@@ -210,6 +212,7 @@ function render(){
     ${q.t==='s'?`<div class="self"><span class="hint" style="margin:0;align-self:center">자동 채점이 틀렸다면</span><button data-self="1">맞은 걸로</button><button data-self="0">틀린 걸로</button></div>`:''}</div>
     ${q.lv==='p'&&q.kw?`<div class="ptitle">출제 메뉴</div><div>${esc(q.kw)}</div>`:''}<div class="ptitle">${q.lv==='p'?'풀이':'해설'}</div><div class="ex">${q.expl?esc(q.expl):'해설이 없는 문항입니다.'}</div>
     ${(q.simgs||[]).length?`<div class="ptitle">풀이 화면 (${q.simgs.length}장 · 누르면 원본 크기)</div><div class="simgs">${q.simgs.map(s=>`<a href="${s}" target="_blank" rel="noopener"><img src="${s}" loading="lazy" alt="풀이 화면"></a>`).join('')}</div>`:''}
+    ${q.ce?`<div class="warnbox plain">정답은 공식 가답안이고, 가답안에 해설이 없어 해설만 Claude가 작성했습니다.</div>`:''}
     ${q.c?`<div class="warnbox">공식 정답이 공개되지 않은 문항이라 Claude가 정답과 해설을 작성했습니다.${q.low?' 판단이 갈릴 여지가 있는 문항이니 교재로 한 번 더 확인하세요.':''}</div>`:''}
     ${q.pdf?`<div class="warnbox plain">101회 문항은 PDF에서 추출해 띄어쓰기가 일부 어긋날 수 있습니다.</div>`:''}`;
   } else panel=`<div class="placeholder">왼쪽에서 ${q.t==='m'?'보기를 고르고':'답을 입력하고'} 정답 확인을 누르면 여기에 정답과 해설이 표시됩니다.</div>`;
