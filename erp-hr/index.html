@@ -185,7 +185,7 @@ function render(){
   const meta=q.lv==='p'?`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 1급 실무`:`Q.${q.no} ${q.y}년 ${q.m}월 ${q.ex}회 ${q.lv}급 · ${u?u.code+' '+esc(u.name):''}`;
   let tags=`<span class="tag">${q.t==='s'?'주관식':'객관식'}</span>`;
   if(q.c) tags+=`<span class="tag c">Claude 작성 정답</span>`;
-  if(q.bno) tags+=`<span class="tag">B형 ${q.bno}번</span>`;
+  if(q.ano) tags+=`<span class="tag">B형 순서 · 가답안 파일 ${q.ano}번</span>`;
   if(q.prov) tags+=`<span class="tag c">가답안</span>`;
   const boki=q.boki.length?`<div class="boki"><b>[보기]</b>${q.boki.map(esc).join('\n')}</div>`:'';
   const imgs=(q.imgs||[]).map(s=>`<img class="qimg" src="${s}" alt="문제 이미지" loading="lazy">`).join('');
